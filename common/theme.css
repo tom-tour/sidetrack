@@ -77,6 +77,8 @@ button.icon { flex: none; width: 30px; padding: 4px 0; text-align: center; }
 /* --- Bandeau d'information --- */
 .notice { margin: 6px 0 0; padding: 6px 8px; border: 1px solid var(--accent); border-radius: 4px; background: var(--active); }
 .notice .actions { display: flex; gap: 4px; margin-top: 6px; }
+/* Bonne nouvelle (« prêt ») : bordure verte, le plus souvent un bandeau temporaire */
+.notice.good { color: var(--fg); border-color: var(--good); }
 
 /* --- Pastilles (personnes, joueurs) --- */
 .chip {

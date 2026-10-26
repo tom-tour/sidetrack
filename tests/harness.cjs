@@ -260,7 +260,8 @@ function makeEngine(label, stored = {}, opts = {}) {
 }
 
 // --- La vraie barre latérale dans jsdom, reliée au moteur ---
-function sidebarFor(engine, language = "fr-FR") {
+// tab : onglet actif de la fenêtre ({ url }), modifiable ensuite avec setTab
+function sidebarFor(engine, language = "fr-FR", tab = { url: "about:blank" }) {
   const { JSDOM } = require("jsdom");
   const html = read("sidebar.html").replace(/<script[^>]*><\/script>/g, "").replace(/<link[^>]*>/g, "");
   const dom = new JSDOM(html, { runScripts: "outside-only", pretendToBeVisual: true });
@@ -275,7 +276,13 @@ function sidebarFor(engine, language = "fr-FR") {
       r.readAsText(this);
     });
   };
+  const tabEvents = { activated: [], updated: [] };
   win.browser = {
+    tabs: {
+      query: async () => [{ id: 1, active: true, ...tab }],
+      onActivated: { addListener: (f) => tabEvents.activated.push(f) },
+      onUpdated: { addListener: (f) => tabEvents.updated.push(f) },
+    },
     runtime: {
       getManifest: () => JSON.parse(read("manifest.json")),
       connect: () => {
@@ -302,6 +309,12 @@ function sidebarFor(engine, language = "fr-FR") {
   const $$ = (s) => [...win.document.querySelectorAll(s)];
   return {
     win, $, $$, errors,
+    // Autre onglet actif (changement d'onglet) ou nouvelle adresse dans le même onglet
+    setTab(url, { navigate = false } = {}) {
+      tab.url = url;
+      if (navigate) tabEvents.updated.forEach((f) => f(1, { url }, { id: 1, active: true, url }));
+      else tabEvents.activated.forEach((f) => f({ tabId: 1 }));
+    },
     click: (s) => (typeof s === "string" ? $(s) : s).dispatchEvent(new win.MouseEvent("click", { bubbles: true })),
     fire: (s, type) => (typeof s === "string" ? $(s) : s).dispatchEvent(new win.Event(type, { bubbles: true, cancelable: true })),
     type(s, value) {

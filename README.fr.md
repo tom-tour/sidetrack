@@ -16,7 +16,7 @@ Une extension Firefox pour écouter des playlists YouTube locales dans la barre 
 - **Blind test en salon**, de deux façons : **❓ Blind test**, où l'hôte joue aussi et ne voit rien à l'avance, ou **🎤 Animateur**, où l'hôte voit tout (titres, vidéo, réponses) et donne les points à la main ou les laisse compter. Les réponses restent cachées jusqu'à la révélation, sauf si un joueur passe de 🔒 à 💬 pour discuter en clair
 - **Codes d'identité** : 4 caractères à côté de chaque nom (joueurs, chat, listes des bloqués et des bannis), liés à l'identité de chacun ; exclure, bannir ou bloquer passe par une fiche qui écrit les conséquences
 - **Bloquer** quelqu'un dans le salon d'un autre (clic sur son nom, puis Bloquer… et confirmer) : plus aucun message ni pastille ne passe entre les deux personnes, dans tous les salons, et la personne bloquée ne peut plus entrer dans les salons de celle qui l'a bloquée. Bloquer l'hôte fait quitter le salon et ferme l'accès à ses salons
-- **Playlists toutes prêtes** (📚) : musiques de jeux vidéo, bandes-son épiques de dark fantasy et d'espace, génériques d'animes (uniquement des vidéos officielles : artistes, compositeurs, labels, éditeurs, les écouter rémunère ceux qui les ont faites), et les mixes de musique de jeux vidéo de dedeco, un morceau par manche en mode chapitres
+- **Playlists toutes prêtes** (📚) : musiques de jeux vidéo, bandes-son épiques de dark fantasy et d'espace, génériques d'animes, et les mixes de musique de jeux vidéo de dedeco, un morceau par manche en mode chapitres
 - **Sauvegarde** des playlists dans un fichier, et restauration
 - Bouton dans la barre d'outils : il ouvre ou ferme la barre latérale, avec un badge pour les messages du salon arrivés pendant qu'elle était fermée
 - Export d'une playlist vers YouTube (sans connexion ni clé d'API, 50 vidéos par lien)
@@ -44,7 +44,7 @@ Les limites, honnêtement :
 
 À installer depuis **[addons.mozilla.org](https://addons.mozilla.org/fr/firefox/addon/sidetrack/)** (Firefox 140 ou plus récent).
 
-À la première ouverture dans une session Firefox, un onglet Sidetrack apparaît : il suffit de cliquer sur **Lancer Sidetrack** (Firefox n'autorise le son qu'après un clic dans la page). L'onglet se range ensuite tout seul et reste prêt jusqu'à la fermeture de Firefox. Pour ne plus jamais avoir cette étape, autoriser la lecture automatique pour `tom-tour.github.io` (Paramètres → Vie privée et sécurité → Permissions → Lecture automatique → Paramètres…).
+À la première ouverture dans une session Firefox, un onglet Sidetrack apparaît : il suffit de cliquer sur **Autoriser Sidetrack à lire des vidéos dans cet onglet** (Firefox n'autorise le son qu'après un clic dans la page). La première fois, Sidetrack propose ensuite de ranger cet onglet hors de la barre d'onglets (📺 dans le panneau le fait revenir, et les réglages permettent de changer d'avis) : lire dans un onglet à part laisse la musique continuer sans que le panneau ait besoin de rester ouvert. L'onglet reste prêt jusqu'à la fermeture de Firefox. Pour ne plus jamais avoir cette étape, autoriser la lecture automatique pour `tom-tour.github.io` (Paramètres → Vie privée et sécurité → Permissions → Lecture automatique → Paramètres…).
 
 Pour essayer la version de développement, en module temporaire :
 

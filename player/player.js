@@ -20,22 +20,35 @@ let retried = false;     // une seule nouvelle tentative par chargement
 let stallRestarts = 0;
 
 const unlock = document.getElementById("unlock");
+const stepSound = document.getElementById("step-sound");
+const stepHide = document.getElementById("step-hide");
 const cover = document.getElementById("cover");
+let askHide = false;     // l'extension veut qu'on propose de ranger l'onglet (la première fois)
 
 // Textes de la page, dans la langue du navigateur (moteur de traduction : ../common/i18n-core.js)
 const STRINGS = {
   fr: {
     setupTitle: "Sidetrack est presque prêt",
-    setupClick: "Cliquer sur « Lancer Sidetrack » : Firefox n'active le son qu'après un clic. L'onglet se range ensuite tout seul.",
-    setupHide: "Une petite bulle peut s'afficher en haut à droite de Firefox (« Une extension masque certains de vos onglets ») : cliquer sur « Garder les onglets masqués ». L'onglet se retrouve ensuite avec 📺 dans le panneau.",
-    unlock: "🔊 Lancer Sidetrack",
+    setupClick: "Firefox n'autorise le son dans un onglet qu'après un clic dans celui-ci. Sans ce clic, Sidetrack ne peut lire aucune vidéo (une fois par session).",
+    unlock: "🔊 Autoriser Sidetrack à lire des vidéos dans cet onglet",
+    hideTitle: "Ranger l'onglet de lecture ?",
+    hideWhy: "Sidetrack lit les vidéos dans cet onglet : la musique continue ainsi sans que le panneau de Sidetrack ait besoin de rester ouvert.",
+    hideHow: "Rangé, l'onglet quitte la barre d'onglets et revient d'un clic sur 📺 dans le panneau. Ce choix se change à tout moment dans les réglages de Sidetrack.",
+    setupHide: "Une petite bulle peut s'afficher en haut à droite de Firefox (« Une extension masque certains de vos onglets ») : cliquer sur « Garder les onglets masqués ».",
+    hideYes: "Ranger l'onglet",
+    hideNo: "Garder l'onglet visible",
     orphan: "Sidetrack n'est plus actif : cet onglet peut être fermé.",
   },
   en: {
     setupTitle: "Sidetrack is almost ready",
-    setupClick: "Click “Launch Sidetrack”: Firefox only turns the sound on after a click. The tab then tucks itself away.",
-    setupHide: "A small bubble may show up at the top right of Firefox (“An extension is hiding some of your tabs”): click “Keep Tabs Hidden”. You can get the tab back with 📺 in the sidebar.",
-    unlock: "🔊 Launch Sidetrack",
+    setupClick: "Firefox only allows sound in a tab after a click in it. Without this click, Sidetrack can't play any video (once per session).",
+    unlock: "🔊 Allow Sidetrack to play videos in this tab",
+    hideTitle: "Tuck the player tab away?",
+    hideWhy: "Sidetrack plays videos in this tab: that way the music keeps going without the Sidetrack sidebar having to stay open.",
+    hideHow: "Tucked away, the tab leaves the tab bar and comes back with 📺 in the sidebar. You can change your mind at any time in the Sidetrack settings.",
+    setupHide: "A small bubble may show up at the top right of Firefox (“An extension is hiding some of your tabs”): click “Keep Tabs Hidden”.",
+    hideYes: "Tuck the tab away",
+    hideNo: "Keep the tab visible",
     orphan: "Sidetrack is no longer active: you can close this tab.",
   },
 };
@@ -54,19 +67,40 @@ function unMute() {
   player.setVolume(audible(volume));
 }
 
+// Écran d'autorisation (de nouveau si Firefox bloque le son plus tard)
+function showUnlock() {
+  stepSound.hidden = false;
+  stepHide.hidden = true;
+  unlock.hidden = false;
+}
+
 // Seul le bouton ferme l'écran : un clic à côté ne fait rien
-unlock.querySelector("button").addEventListener("click", () => {
-  unlock.hidden = true;
+document.getElementById("allow").addEventListener("click", () => {
   if (player?.playVideo) {
     unMute();
     if (player.getPlayerState() === YT.PlayerState.PAUSED) player.playVideo();
   }
-  send({ type: "unblocked" });
+  // La première fois, on propose de ranger l'onglet avant de revenir à la navigation
+  if (askHide) {
+    stepSound.hidden = true;
+    stepHide.hidden = false;
+  } else {
+    unlock.hidden = true;
+  }
+  send({ type: "unblocked", asking: askHide });
 });
+
+for (const [id, hide] of [["hide-yes", true], ["hide-no", false]]) {
+  document.getElementById(id).addEventListener("click", () => {
+    askHide = false;
+    unlock.hidden = true;
+    send({ type: "hideChoice", hide });
+  });
+}
 
 // Sans clic dans cette page, Firefox refuse le son : on propose le clic tout de suite.
 const autoplay = navigator.getAutoplayPolicy?.("mediaelement") ?? "unknown";
-if (autoplay !== "allowed") unlock.hidden = false;
+if (autoplay !== "allowed") showUnlock();
 send({ type: "hello", autoplay });
 
 window.onYouTubeIframeAPIReady = () => {
@@ -85,7 +119,7 @@ window.onYouTubeIframeAPIReady = () => {
         if (e.data === YT.PlayerState.PLAYING) onPlaying();
         if (e.data === YT.PlayerState.PAUSED) {
           if (Date.now() - unmutedAt < 2000) {
-            unlock.hidden = false;
+            showUnlock();
             send({ type: "blocked" });
           } else {
             wantPlaying = false; // pause demandée (ou faite directement dans l'onglet)
@@ -150,7 +184,7 @@ function sendPlaylist(attempt) {
 
 // Vidéo et position actuelles (pour synchroniser les invités d'un salon)
 function position() {
-  return { id: player.getVideoData()?.video_id, time: player.getCurrentTime() };
+  return { id: player.getVideoData()?.video_id, time: player.getCurrentTime(), duration: player.getDuration() };
 }
 
 function load(cmd, retry = false) {
@@ -213,6 +247,10 @@ window.addEventListener("message", (e) => {
     cover.hidden = !e.data.on;
     return;
   }
+  if (e.data.action === "setup") {
+    askHide = !!e.data.askHide;
+    return;
+  }
   run(e.data);
 });
 
@@ -233,7 +271,7 @@ setInterval(() => {
   send({ type: "tick", state, ...position() });
 
   // Une lecture demandée qui reste bloquée au départ est relancée
-  if (wantPlaying && unlock.hidden && (state === YT.PlayerState.UNSTARTED || state === YT.PlayerState.CUED)) {
+  if (wantPlaying && (unlock.hidden || !stepHide.hidden) && (state === YT.PlayerState.UNSTARTED || state === YT.PlayerState.CUED)) {
     if (++stalled >= 3) {
       stalled = 0;
       // Deux relances sans effet : on recharge carrément la vidéo (une fois)

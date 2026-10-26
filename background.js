@@ -21,6 +21,9 @@ const DEFAULTS = {
   showMulti: true,     // bouton 🌐 du salon (désactivable pour un usage solo)
   showPresets: true,   // bouton 📚 des playlists toutes prêtes
   hideTab: true,       // ranger l'onglet du lecteur hors de la barre d'onglets (tabs.hide)
+  tabAsked: false,     // choix de ranger l'onglet déjà proposé dans la page du lecteur
+  showTips: true,      // bandeau des premiers pas, une fois le lecteur autorisé
+  showPreview: false,  // miniature de la vidéo dans le panneau
   nickname: "",        // pseudo dans les salons
   nameSet: false,      // pseudo choisi ou accepté (sinon proposé avant le premier salon)
   volume: 100,
@@ -48,6 +51,9 @@ function cleanSetting(key, value) {
     case "showMulti":
     case "showPresets":
     case "hideTab":
+    case "tabAsked":
+    case "showTips":
+    case "showPreview":
     case "nameSet":
       return bool(value);
     case "nickname":
@@ -112,8 +118,17 @@ let state = {
 let playerState = -1;  // -1 non démarré, 0 fini, 1 lecture, 2 pause, 5 prête
 let loadingSince = 0;  // vidéo demandée au lecteur, pas encore démarrée (indicateur de chargement)
 let playerShown = false; // onglet du lecteur affiché (bouton 📺 allumé)
+// Position de la vidéo { id, time, duration, playing, at } : la barre latérale la fait avancer
+// elle-même, le moteur ne renvoie son état que si la lecture change (pause, saut, autre vidéo)
+let position = null;
 let importTarget = null;
 let notice = null;     // { key, args?, focus? } : traduit par la barre latérale
+// Lecteur autorisé : « Sidetrack est prêt » quelques secondes, puis les premiers pas (une fois
+// par session, tant qu'on ne les a pas fermés)
+let readyShown = false;
+let readyTimer = null;
+let tips = false;
+let tipsShown = false;
 const journal = createLog();
 
 // Blind test, joué (« blind ») ou animé par l'hôte d'un salon (« emcee ») : même partie,
@@ -164,7 +179,7 @@ function snapshot() {
   const loading = !!loadingSince && Date.now() - loadingSince < LOADING_MAX;
   const hint = ["playing", "timeup"].includes(game.phase) ? { mask: hintMask(), max: maxPoints() } : null;
   return {
-    state, settings, game, hint, playerState, loading, playerShown, notice, log: journal.lines,
+    state, settings, game, hint, playerState, loading, playerShown, position, notice, ready: readyShown, tips, log: journal.lines,
     me: { code: identity.code, mining: myIdentity.mining && { percent: powPercent(myIdentity.mining.tries) } },
     room: roomSnapshot(), guest: guestSnapshot(), rooms: publicRoomsSnapshot(),
   };
@@ -188,7 +203,7 @@ browser.runtime.onConnect.addListener((port) => {
   ports.add(port);
   clearUnread();
   // Panneau ouvert : l'onglet du lecteur doit exister. Il se prépare tout de suite (écran
-  // « Lancer Sidetrack » si Firefox exige un clic), avant même la première vidéo
+  // d'autorisation si Firefox exige un clic), avant même la première vidéo
   warmPlayer();
   port.onDisconnect.addListener(() => ports.delete(port));
   port.onMessage.addListener(async ({ cmd, args = [], req }) => {
@@ -554,6 +569,7 @@ function connectPlayer(port) {
     if (playerPort !== port) return;
     playerPort = null;
     playerState = -1;
+    position = null;
     loadingSince = 0;
     playerShown = false;
     log(t("logTabClosed"));
@@ -585,7 +601,7 @@ function warmPlayer() {
 }
 
 // Cache sur la vidéo, dans la page du lecteur : en blind test, rien n'est dévoilé même si
-// l'onglet s'affiche (premier chargement, clic sur « Lancer Sidetrack », nouvel essai…)
+// l'onglet s'affiche (premier chargement, clic d'autorisation, nouvel essai…)
 function videoHidden() {
   if (inGuestRoom()) return guestHidesVideo();
   return state.mode === "blind" && settings.blind.hideVideo && game.phase !== "revealed";
@@ -608,7 +624,7 @@ async function hidePlayerTab() {
 
 // Affiche l'onglet du lecteur ; s'il est déjà affiché et que toggle est vrai, revient à la navigation
 async function focusPlayer(toggle = false) {
-  // 📺 est inactif en blind test joué ; seul l'écran « Lancer Sidetrack » peut y emmener.
+  // 📺 est inactif en blind test joué ; seul l'écran d'autorisation peut y emmener.
   // L'animateur garde l'accès à la vidéo ; un invité la voit quand l'hôte ne la cache pas.
   const hidden = inGuestRoom() ? guestHidesVideo() : state.mode === "blind";
   if (playerTabId == null || !playerPort || (toggle && hidden)) return;
@@ -636,6 +652,20 @@ function play(i, opts = {}) {
   save();
 }
 
+function trackPosition(msg) {
+  if (!msg.id || !Number.isFinite(Number(msg.time))) return;
+  const now = Date.now();
+  const time = Number(msg.time);
+  const playing = msg.state === 1;
+  const same = position?.id === msg.id;
+  // Ancienne page du lecteur (sans durée dans ses positions) : celle du départ est gardée
+  const duration = Number(msg.duration) > 0 ? Number(msg.duration) : same ? position.duration : 0;
+  const expected = same ? position.time + (position.playing ? (now - position.at) / 1000 : 0) : null;
+  const changed = !same || position.playing !== playing || position.duration !== duration || Math.abs(expected - time) > 1.5;
+  position = { id: msg.id, time, duration, playing, at: now };
+  if (changed) update();
+}
+
 function onPlayerMessage(msg) {
   switch (msg.type) {
     case "ready":
@@ -656,7 +686,10 @@ function onPlayerMessage(msg) {
       break;
     case "hello":
       log(t("logAutoplay", msg.autoplay));
+      // La page demande, après le clic d'autorisation, s'il faut ranger l'onglet (une seule fois)
+      playerPort?.postMessage({ action: "setup", askHide: !settings.tabAsked });
       if (msg.autoplay === "allowed") {
+        startTips();
         // On reste sur l'onglet le temps que la vidéo démarre : masquer l'onglet pendant
         // le tout premier chargement semble parfois faire échouer YouTube
         clearTimeout(returnAfterStart);
@@ -680,16 +713,31 @@ function onPlayerMessage(msg) {
       break;
     case "unblocked":
       notice = null;
-      backToBrowsing();
+      showReady();
+      startTips();
+      // La page propose maintenant de ranger l'onglet : on y reste le temps de la réponse
+      if (!msg.asking) backToBrowsing();
+      update();
+      break;
+    case "hideChoice":
+      if (typeof msg.hide !== "boolean") break;
+      settings.hideTab = msg.hide;
+      settings.tabAsked = true;
+      save();
+      // Rangé : on revient à la navigation (l'onglet se masque en le quittant). Gardé : on y reste.
+      if (msg.hide) backToBrowsing();
+      else applyHideTab();
       update();
       break;
     case "tick":
       roomTick(msg);
       guestTick(msg);
+      trackPosition(msg);
       break;
     case "state":
       log(t("logState", STATE_NAMES[msg.state] ? t(STATE_NAMES[msg.state]) : msg.state));
       playerState = msg.state;
+      trackPosition(msg);
       roomTick(msg, true);
       guestTick(msg);
       if (msg.state === 0 && !inGuestRoom()) onEnded();
@@ -698,6 +746,7 @@ function onPlayerMessage(msg) {
     case "started":
       retriedVisible = false;
       loadingSince = 0;
+      if (position && Number(msg.duration) > 0) position.duration = Number(msg.duration);
       update();
       // Le son revient juste au démarrage, et Firefox peut encore couper la lecture pendant
       // ~2 s : on reste sur l'onglet le temps que le départ soit acquis.
@@ -1124,7 +1173,7 @@ const actions = {
     save();
   },
   setSetting: (key, value) => {
-    if (!["lang", "showMulti", "chatSound", "nickname", "nameSet", "hideTab", "showPresets"].includes(key)) return;
+    if (!["lang", "showMulti", "chatSound", "nickname", "nameSet", "hideTab", "showPresets", "showTips", "showPreview"].includes(key)) return;
     const clean = cleanSetting(key, value);
     if (clean === undefined) return;
     settings[key] = clean;
@@ -1133,6 +1182,7 @@ const actions = {
       if (!clean) settings.nickname = proposedName(); // champ vidé : un nouveau pseudo proposé
     }
     if (key === "hideTab") applyHideTab();
+    if (key === "showTips") tips = clean; // case recochée : les conseils reviennent tout de suite
     if (key === "lang") setLang(clean);
     update();
     save();
@@ -1141,7 +1191,36 @@ const actions = {
     notice = null;
     update();
   },
+  dismissReady: () => {
+    clearTimeout(readyTimer);
+    readyShown = false;
+    update();
+  },
+  // OK : fermé pour la session ; Ne plus afficher : réglage showTips décoché
+  dismissTips: (forever) => {
+    tips = false;
+    if (forever === true) {
+      settings.showTips = false;
+      save();
+    }
+    update();
+  },
 };
+
+function showReady() {
+  readyShown = true;
+  clearTimeout(readyTimer);
+  readyTimer = setTimeout(() => {
+    readyShown = false;
+    update();
+  }, 5000);
+}
+
+function startTips() {
+  if (tipsShown || !settings.showTips) return;
+  tipsShown = true;
+  tips = true;
+}
 
 // --- Démarrage -------------------------------------------------------------
 

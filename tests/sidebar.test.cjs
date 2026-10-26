@@ -185,7 +185,89 @@ const { read, until, check, done, makeEngine, sidebarFor, playlist } = require("
     await until(() => quiet.snap().settings.nameSet);
     check("entrer dans un salon sans y toucher : « Invité-1234 » accepté", /^Invité-\d{4}$/.test(quiet.snap().settings.nickname) && quiet.snap().settings.nameSet);
 
-    const errs = [...sb.errors, ...sf.errors, ...sq.errors];
+    // --- Premiers pas : autorisation, « prêt », conseils, ranger l'onglet ---
+    const VIDEO = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+    const first = makeEngine("premiers pas", { sidetrack: playlist });
+    const s1 = sidebarFor(first, "fr-FR", { url: VIDEO });
+    await until(() => first.player.port && first.snap());
+    first.fromPlayer({ type: "hello", autoplay: "disallowed" });
+    await until(() => !s1.$("#notice").hidden);
+    const noticeButtons = [...s1.$("#notice .actions").children].map((b) => b.textContent);
+    check("autorisation attendue : seulement « Aller à l'onglet », pas de OK", noticeButtons.join("|") === "Aller à l'onglet", noticeButtons.join("|"));
+    check("bandeau : nom du nouveau bouton", s1.$("#notice").textContent.includes("« Autoriser Sidetrack à lire des vidéos dans cet onglet »"));
+    check("la page du lecteur demandera de ranger l'onglet (première fois)", first.player.cmds.some((c) => c.action === "setup" && c.askHide === true));
+    check("pas de halo avant l'autorisation", !s1.$$(".beckon").length);
+    first.fromPlayer({ type: "unblocked", asking: true });
+    await until(() => s1.$("#notice").hidden && !s1.$("#ready").hidden && !s1.$("#tips").hidden);
+    check("autorisé : bandeau parti, « prêt » et conseils affichés", s1.$("#ready").textContent.includes("Sidetrack est prêt") && s1.$("#tips").textContent.includes("Pour commencer"));
+    check("conseils : OK et « Ne plus afficher »", s1.$("#tips-ok").textContent === "OK" && s1.$("#tips-never").textContent === "Ne plus afficher");
+    check("halo sur le champ du lien, 📚 et 🌐", ["#url", "#pl-presets", "#toggle-room"].every((id) => s1.$(id).classList.contains("beckon")), s1.$$(".beckon").map((e) => e.id).join(","));
+    first.fromPlayer({ type: "hideChoice", hide: false });
+    await until(() => first.snap().settings.tabAsked);
+    check("onglet gardé visible : réglage décoché et plus redemandé", first.snap().settings.hideTab === false && first.store.settings.tabAsked === true);
+    first.fromPlayer({ type: "blocked" });
+    await until(() => !s1.$("#notice").hidden);
+    s1.click("#tips-never");
+    await until(() => s1.$("#tips").hidden);
+    check("Ne plus afficher : conseils fermés, halos éteints, réglage décoché", !s1.$$(".beckon").length && first.snap().settings.showTips === false);
+    first.fromPlayer({ type: "unblocked" });
+    await until(() => s1.$("#notice").hidden);
+    check("nouvelle autorisation dans la session : pas de nouveaux conseils", s1.$("#tips").hidden);
+    await until(() => s1.$("#ready").hidden, 7000);
+    check("« prêt » disparaît seul après 5 s", s1.$("#ready").hidden);
+    s1.click("#open-settings");
+    s1.click("#set-showTips");
+    await until(() => !s1.$("#tips").hidden);
+    check("case recochée : les conseils reviennent", first.snap().settings.showTips === true);
+    s1.click("#close-settings");
+
+    // --- Aperçu : désactivé par défaut, réglage pour le remettre ---
+    check("aperçu masqué par défaut", s1.$("#player-wrap").hidden && first.snap().settings.showPreview === false);
+    first.act("setSetting", "showPreview", true);
+    await until(() => !s1.$("#player-wrap").hidden);
+    check("réglage : aperçu affiché", !s1.$("#player-wrap").hidden);
+    check("plus de texte « vidéos officielles » dans les playlists toutes prêtes", !read("sidebar.html").includes("presetsHelp") && !s1.$("#presets").textContent.includes("officielles"));
+
+    // --- Progression : la vidéo partout, l'extrait pendant une manche ---
+    const firstItem = first.snap().state.playlists.find((p) => p.id === first.snap().state.current).items[0];
+    first.act("play", 0);
+    first.fromPlayer({ type: "tick", id: firstItem.id, time: 30, duration: 200, state: 1 });
+    await until(() => !s1.$("#progress").hidden);
+    check("lecture : progression « 0:30 / 3:20 »", s1.$("#pos-time").textContent === "0:30" && s1.$("#pos-total").textContent === "3:20", `${s1.$("#pos-time").textContent} / ${s1.$("#pos-total").textContent}`);
+    await until(() => s1.$("#pos-time").textContent === "0:31", 2000);
+    check("la position avance seule entre deux états du moteur", s1.$("#pos-time").textContent === "0:31");
+    first.fromPlayer({ type: "tick", id: firstItem.id, time: 31.2, duration: 200, state: 1 });
+    first.fromPlayer({ type: "tick", id: firstItem.id, time: 32.2, duration: 200, state: 1 });
+    s1.$("#pos-bar").getBoundingClientRect = () => ({ left: 0, width: 100 });
+    s1.$("#pos-bar").dispatchEvent(new s1.win.MouseEvent("click", { bubbles: true, clientX: 50 }));
+    await until(() => first.player.cmds.some((c) => c.action === "seek"));
+    check("clic au milieu de la barre : saut à 1:40", first.player.cmds.find((c) => c.action === "seek")?.time === 100);
+    first.eval("resetGame(); state.mode = 'blind'; Object.assign(game, { phase: 'playing', order: [{ i: 0 }], pos: 0, clip: 20, remaining: 12 }); update()");
+    await until(() => s1.$("#pos-total").textContent === "0:20");
+    check("manche : extrait « 0:08 / 0:20 », pas de saut", s1.$("#pos-time").textContent === "0:08" && !s1.$("#progress").classList.contains("seek"));
+    first.eval("resetGame(); state.mode = 'listen'; update()");
+    await until(() => s1.$("#pos-total").textContent === "3:20");
+
+    // --- Lien de l'onglet actif dans le champ ---
+    check("onglet YouTube actif : champ rempli", s1.$("#url").value === VIDEO, s1.$("#url").value);
+    s1.setTab("https://example.org/");
+    await until(() => s1.$("#url").value === "");
+    check("onglet quitté : lien retiré (champ pas modifié)", s1.$("#url").value === "");
+    const LIST = "https://www.youtube.com/playlist?list=PL123";
+    s1.setTab(LIST, { navigate: true });
+    await until(() => s1.$("#url").value === LIST);
+    check("navigation vers une playlist : champ rempli", s1.$("#url").value === LIST);
+    s1.$("#add").requestSubmit();
+    await new Promise((r) => setTimeout(r, 50));
+    s1.setTab(LIST);
+    await new Promise((r) => setTimeout(r, 50));
+    check("lien ajouté : pas reproposé", s1.$("#url").value === "", s1.$("#url").value);
+    s1.$("#url").value = "ma recherche";
+    s1.setTab(VIDEO);
+    await new Promise((r) => setTimeout(r, 50));
+    check("champ modifié à la main : pas écrasé", s1.$("#url").value === "ma recherche");
+
+    const errs = [...sb.errors, ...sf.errors, ...sq.errors, ...s1.errors];
     check("aucune erreur dans la page", !errs.length, errs.join(" / "));
   } catch (err) {
     check("exception", false, err.stack);

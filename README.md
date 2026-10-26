@@ -16,7 +16,7 @@ A Firefox extension to play local YouTube playlists in the sidebar while you bro
 - **Blind test in a room**, two ways: **❓ Blind test**, where the host plays along and sees nothing in advance, or **🎤 Quizmaster**, where the host sees everything (titles, video, guesses) and gives the points by hand or lets them be counted. Guesses stay hidden until the reveal, unless a player switches 🔒 → 💬 to chat in the open
 - **Identity codes**: 4 characters next to every name (players, chat, blocked and banned lists), tied to each person's identity; kicking, banning or blocking goes through a person card that spells out the consequences
 - **Block** someone in another person's room (click their name, then Block… and confirm): their messages and chip disappear for you, yours for them, in every room, and they can't enter the rooms you create. Blocking the host leaves the room and closes their rooms to you
-- **Ready-made playlists** (📚): video game music, epic dark fantasy and space soundtracks, anime openings (official uploads only: artists, composers, labels, publishers, so listening pays the people who made them), and the video game music DJ mixes of dedeco, one round per track in chapter mode
+- **Ready-made playlists** (📚): video game music, epic dark fantasy and space soundtracks, anime openings, and the video game music DJ mixes of dedeco, one round per track in chapter mode
 - **Backup** of your playlists to a file, and restore
 - Toolbar button: opens or closes the sidebar, with a badge for room messages that arrived while it was closed
 - Export a playlist to YouTube (no login or API key, 50 videos per link)
@@ -44,7 +44,7 @@ Limits, honestly:
 
 Install it from **[addons.mozilla.org](https://addons.mozilla.org/firefox/addon/sidetrack/)** (Firefox 140 or later).
 
-The first time you open it in a Firefox session, a Sidetrack tab shows up: click **Launch Sidetrack** (Firefox only allows sound after a click in the page). The tab then hides itself and stays ready until Firefox closes. To skip this step for good, allow autoplay for `tom-tour.github.io` (Settings → Privacy & Security → Permissions → Autoplay → Settings…).
+The first time you open it in a Firefox session, a Sidetrack tab shows up: click **Allow Sidetrack to play videos in this tab** (Firefox only allows sound after a click in the page). The first time, Sidetrack then offers to tuck that tab out of the tab bar (📺 in the sidebar brings it back, and the settings let you change your mind): playing in a tab of its own keeps the music going without the sidebar having to stay open. The tab stays ready until Firefox closes. To skip this step for good, allow autoplay for `tom-tour.github.io` (Settings → Privacy & Security → Permissions → Autoplay → Settings…).
 
 To try the development version instead, as a temporary add-on:
 

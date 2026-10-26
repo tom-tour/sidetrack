@@ -19,10 +19,26 @@
       <button id="open-settings" class="icon" data-i18n-title="settings">⚙</button>
     </div>
     <div id="notice" class="notice" hidden></div>
+    <!-- Lecteur autorisé : « prêt » pendant 5 s, puis les premiers pas (OK / Ne plus afficher) -->
+    <div id="ready" class="notice good" hidden>
+      <span data-i18n="noticeReady"></span>
+      <div class="actions"><button id="ready-ok" data-i18n="ok"></button></div>
+    </div>
+    <div id="tips" class="notice" hidden>
+      <strong data-i18n="tipsTitle"></strong>
+      <ul>
+        <li id="tip-link" data-i18n="tipLink"></li>
+        <li id="tip-presets" data-i18n="tipPresets"></li>
+        <li id="tip-room" data-i18n="tipRoom"></li>
+      </ul>
+      <div class="actions">
+        <button id="tips-ok" data-i18n="ok"></button>
+        <button id="tips-never" data-i18n="dontShowAgain"></button>
+      </div>
+    </div>
 
     <!-- Playlists toutes prêtes (bouton 📚) -->
     <div id="presets" hidden>
-      <p class="muted" data-i18n="presetsHelp"></p>
       <div id="preset-list"></div>
     </div>
 
@@ -82,8 +98,9 @@
     </div>
 
     <div id="stage">
-      <div id="player-wrap">
-        <img id="art" alt="" hidden>
+      <!-- Aperçu (réglage, désactivé par défaut) : un clic affiche ou masque l'onglet, comme 📺 -->
+      <div id="player-wrap" hidden>
+        <img id="art" alt="" data-i18n-title="previewTitle" hidden>
         <div id="mask" hidden>
           <div id="mask-icon">?</div>
           <div id="mask-time"></div>
@@ -91,6 +108,12 @@
         <div id="loading" hidden data-i18n-title="loadingVideoTitle"><div class="spinner"></div></div>
       </div>
       <div id="now"></div>
+      <!-- Progression : la vidéo (un clic pour y aller), ou l'extrait d'une manche de blind test -->
+      <div id="progress" hidden>
+        <time id="pos-time"></time>
+        <progress id="pos-bar"></progress>
+        <time id="pos-total"></time>
+      </div>
       <!-- Blind test : le titre se dévoile peu à peu -->
       <div id="hint" hidden><span id="hint-mask"></span> <span id="hint-max" class="muted"></span></div>
       <div id="volume-row">
@@ -214,6 +237,9 @@
     <fieldset>
       <legend data-i18n="display"></legend>
       <label class="check"><input type="checkbox" id="set-showPresets"> <span data-i18n="showPresets"></span></label>
+      <label class="check"><input type="checkbox" id="set-showTips"> <span data-i18n="showTips"></span></label>
+      <label class="check"><input type="checkbox" id="set-showPreview"> <span data-i18n="showPreview"></span></label>
+      <p class="help" data-i18n="showPreviewHelp"></p>
       <label class="check"><input type="checkbox" id="set-hideTab"> <span data-i18n="hideTab"></span></label>
       <p class="help" data-i18n="hideTabHelp"></p>
     </fieldset>

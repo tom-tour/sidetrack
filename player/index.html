@@ -27,6 +27,13 @@
       color: #fff; background: #0061e0; border: 0; border-radius: 8px;
     }
     #unlock button:hover { background: #0250bb; }
+    #unlock p { margin: 0 0 12px; line-height: 1.45; }
+    #unlock .help { color: #a3a3ad; font-size: 14px; }
+    #step-sound p { margin-bottom: 20px; }
+    #unlock .choices { display: grid; gap: 8px; margin-top: 20px; }
+    #unlock button.secondary { font-size: 16px; padding: 10px 20px; background: #2b2a33; }
+    #unlock button.secondary:hover { background: #45444c; }
+    #unlock .card[hidden] { display: none; }
   </style>
 </head>
 <body>
@@ -34,18 +41,26 @@
   <div id="cover" hidden>?</div>
   <!-- Écran de préparation : le clic sur le bouton est ce qui autorise le son pour la session -->
   <div id="unlock" hidden>
-    <div class="card">
+    <div id="step-sound" class="card">
       <h1 data-i18n="setupTitle"></h1>
-      <ol>
-        <li data-i18n="setupClick"></li>
-        <li data-i18n="setupHide"></li>
-      </ol>
-      <button data-i18n="unlock"></button>
+      <p data-i18n="setupClick"></p>
+      <button id="allow" data-i18n="unlock"></button>
+    </div>
+    <!-- Ensuite, la première fois : ranger l'onglet hors de la barre d'onglets, ou le garder -->
+    <div id="step-hide" class="card" hidden>
+      <h1 data-i18n="hideTitle"></h1>
+      <p data-i18n="hideWhy"></p>
+      <p data-i18n="hideHow"></p>
+      <p class="help" data-i18n="setupHide"></p>
+      <div class="choices">
+        <button id="hide-yes" data-i18n="hideYes"></button>
+        <button id="hide-no" class="secondary" data-i18n="hideNo"></button>
+      </div>
     </div>
   </div>
   <!-- Versions à incrémenter à chaque modification (cache de GitHub Pages) -->
-  <script src="../common/i18n-core.js?v=4"></script>
-  <script src="player.js?v=15"></script>
+  <script src="../common/i18n-core.js?v=5"></script>
+  <script src="player.js?v=17"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
