@@ -303,7 +303,7 @@ function sidebarFor(engine, language = "fr-FR", tab = { url: "about:blank" }) {
     },
   };
   // Comme dans la page : scripts classiques qui partagent leurs déclarations (STRINGS…)
-  const scripts = ["common/i18n-core.js", "i18n.js", "common/ui.js", "presets.js", "sidebar.js"].map(read).join("\n;\n");
+  const scripts = [...read("sidebar.html").matchAll(/<script src="([^"]+)"><\/script>/g)].map((m) => read(m[1])).join("\n;\n");
   win.eval(scripts);
   const $ = (s) => win.document.querySelector(s);
   const $$ = (s) => [...win.document.querySelectorAll(s)];

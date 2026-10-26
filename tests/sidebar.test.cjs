@@ -267,7 +267,43 @@ const { read, until, check, done, makeEngine, sidebarFor, playlist } = require("
     await new Promise((r) => setTimeout(r, 50));
     check("champ modifié à la main : pas écrasé", s1.$("#url").value === "ma recherche");
 
-    const errs = [...sb.errors, ...sf.errors, ...sq.errors, ...s1.errors];
+    // --- Playlist et Blind test séparés : chaque onglet son haut de page, ses playlists ---
+    const two = {
+      playlists: [
+        playlist.playlists[0],
+        { id: "p2", name: "Animes", items: [{ id: "abcdefghijk", title: "Opening A", chapters: [] }, { id: "9bZkp7q19f0", title: "PSY - Gangnam Style", chapters: [] }] },
+      ],
+      current: "p1",
+    };
+    const sep = makeEngine("séparés", { sidetrack: two });
+    const s2 = sidebarFor(sep);
+    await until(() => sep.snap() && s2.$("#pl-select").options.length === 2);
+    check("onglets en haut, avec 🌐 et ⚙ sur la même ligne", s2.$("#top").contains(s2.$("#tabs")) && s2.$("#top").contains(s2.$("#open-settings")) && s2.$("#top").contains(s2.$("#toggle-room")));
+    check("Playlist : barre des playlists et champ du lien visibles", !s2.$("#listen-head").hidden && s2.$("#blind-setup").hidden);
+    s2.click("#mode-blind");
+    await until(() => !s2.$("#blind-setup").hidden);
+    check("Blind test : ni barre des playlists ni champ du lien", s2.$("#listen-head").hidden);
+    const boxes = () => s2.$$("#blind-sources input");
+    check("une case par playlist, la playlist ouverte cochée par défaut", boxes().length === 2 && boxes()[0].checked && !boxes()[1].checked);
+    check("réglages résumés en une ligne", s2.$("#blind-summary").textContent === "⚙ Durée du chapitre · chapitre aléatoire · indices · pause 10 s", s2.$("#blind-summary").textContent);
+    boxes()[1].checked = true;
+    s2.fire(boxes()[1], "change");
+    await until(() => sep.snap().state.blindSources.length === 2);
+    check("deux playlists cochées : 3 morceaux (doublon compté une fois)", sep.snap().deck.length === 3 && s2.$("#blind-status").textContent === "3 morceau(x) à jouer.", s2.$("#blind-status").textContent);
+    sep.act("setBlind", "startMode", "start");
+    sep.act("startGame");
+    await until(() => sep.snap().game.phase === "playing");
+    const loaded = sep.player.cmds.filter((c) => c.action === "load").at(-1);
+    check("la partie joue une piste des playlists cochées", ["dQw4w9WgXcQ", "9bZkp7q19f0", "abcdefghijk"].includes(loaded?.id) && sep.snap().game.order.length === 3);
+    check("la partie ne touche pas à la playlist ouverte", sep.snap().state.current === "p1" && sep.snap().state.index === -1);
+    await until(() => s2.$("#blind-setup").hidden);
+    check("pendant la partie : réglages et playlists repliés", s2.$("#blind-setup").hidden && s2.$("#now").textContent.startsWith("Morceau mystère"));
+    sep.act("reveal");
+    await until(() => s2.$("#now").textContent === sep.snap().current.title);
+    check("révélé : le titre de la piste jouée", s2.$("#now").textContent === sep.snap().current.title && sep.snap().current.id === loaded.id);
+    check("stockage : playlists jouées gardées", JSON.stringify(sep.store.sidetrack.blindSources) === JSON.stringify(["p1", "p2"]));
+
+    const errs = [...sb.errors, ...sf.errors, ...sq.errors, ...s1.errors, ...s2.errors];
     check("aucune erreur dans la page", !errs.length, errs.join(" / "));
   } catch (err) {
     check("exception", false, err.stack);

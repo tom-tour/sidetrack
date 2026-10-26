@@ -3,7 +3,15 @@
 
 body { padding: 8px; }
 
-/* --- Barre du haut, playlists --- */
+/* --- Ligne du haut : onglets des modes, puis 🌐 et ⚙ --- */
+#top { display: flex; align-items: flex-end; gap: 4px; border-bottom: 1px solid var(--border); }
+#tabs { flex: 1; min-width: 0; border-bottom: 0; }
+#tabs .tab { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding-left: 4px; padding-right: 4px; }
+#top > button { margin-bottom: 3px; }
+#toggle-room { position: relative; }
+
+/* --- Onglet Playlist : playlists, ajout d'un lien --- */
+#listen-head { margin-top: 8px; }
 #pl-bar, #add { display: flex; gap: 4px; }
 #pl-select, #pl-name, #url { flex: 1; min-width: 0; }
 #add { margin-top: 6px; }
@@ -12,9 +20,16 @@ body { padding: 8px; }
 #tips li[hidden] { display: none; }
 #preset-list { display: grid; gap: 4px; }
 #preset-list button { text-align: left; }
-#toggle-room { position: relative; }
 
-#tabs { margin-top: 8px; }
+/* --- Onglet Blind test, entre deux parties : playlists jouées, réglages --- */
+#blind-setup { margin-top: 8px; }
+#blind-pick p { margin: 0 0 4px; }
+#blind-sources { list-style: none; margin: 0 0 6px; padding: 0; max-height: 132px; overflow-y: auto; }
+#blind-sources label { display: flex; align-items: center; gap: 6px; padding: 1px 4px; border-radius: 3px; cursor: pointer; }
+#blind-sources label:hover { background: var(--card); }
+#blind-sources .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#blind-summary { cursor: pointer; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#blind-options[open] #blind-summary { margin-bottom: 4px; }
 
 /* --- Lecteur (miniature, cache du blind test, chargement) --- */
 #player-wrap { position: relative; margin-top: 8px; aspect-ratio: 16 / 9; background: #000; border-radius: 4px; overflow: hidden; }

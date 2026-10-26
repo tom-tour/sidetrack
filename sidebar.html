@@ -7,14 +7,14 @@
 </head>
 <body>
   <main id="main">
-    <div id="pl-bar">
-      <select id="pl-select" data-i18n-title="playlist"></select>
-      <input id="pl-name" type="text" data-i18n-placeholder="playlistName" autocomplete="off" hidden>
-      <button id="pl-new" class="icon" data-i18n-title="newPlaylist">＋</button>
-      <button id="pl-rename" class="icon" data-i18n-title="rename">✎</button>
-      <button id="pl-delete" class="icon" data-i18n-title="deletePlaylist">🗑</button>
-      <button id="pl-export" class="icon" data-i18n-title="exportYoutube">⤴</button>
-      <button id="pl-presets" class="icon" data-i18n-title="presets">📚</button>
+    <!-- Ligne du haut : les modes (onglets), puis 🌐 et ⚙ -->
+    <div id="top">
+      <div id="tabs" class="tabs">
+        <button id="mode-listen" class="tab" data-i18n="modePlaylist"></button>
+        <button id="mode-blind" class="tab" data-i18n="modeBlind" data-i18n-title="modeBlindTitle"></button>
+        <!-- Hôte d'un salon seulement -->
+        <button id="mode-emcee" class="tab" data-i18n="modeEmcee" data-i18n-title="modeEmceeTitle" hidden></button>
+      </div>
       <button id="toggle-room" class="icon" data-i18n-title="room">🌐<span id="unread" class="badge over" hidden></span></button>
       <button id="open-settings" class="icon" data-i18n-title="settings">⚙</button>
     </div>
@@ -36,16 +36,6 @@
         <button id="tips-never" data-i18n="dontShowAgain"></button>
       </div>
     </div>
-
-    <!-- Playlists toutes prêtes (bouton 📚) -->
-    <div id="presets" hidden>
-      <div id="preset-list"></div>
-    </div>
-
-    <form id="add">
-      <input id="url" type="text" data-i18n-placeholder="linkPlaceholder" data-i18n-title="linkHelp" autocomplete="off">
-      <button type="submit" data-i18n="add"></button>
-    </form>
 
     <!-- Salon (bouton 🌐) : créer ou rejoindre, salons publics ; une fois dedans, le chat -->
     <section id="online" hidden>
@@ -90,11 +80,81 @@
       </div>
     </section>
 
-    <div id="tabs" class="tabs">
-      <button id="mode-listen" class="tab" data-i18n="modePlaylist"></button>
-      <button id="mode-blind" class="tab" data-i18n="modeBlind" data-i18n-title="modeBlindTitle"></button>
-      <!-- Hôte d'un salon seulement -->
-      <button id="mode-emcee" class="tab" data-i18n="modeEmcee" data-i18n-title="modeEmceeTitle" hidden></button>
+    <!-- Onglet Playlist : choix de la playlist, playlists toutes prêtes, ajout d'un lien -->
+    <div id="listen-head">
+      <div id="pl-bar">
+        <select id="pl-select" data-i18n-title="playlist"></select>
+        <input id="pl-name" type="text" data-i18n-placeholder="playlistName" autocomplete="off" hidden>
+        <button id="pl-new" class="icon" data-i18n-title="newPlaylist">＋</button>
+        <button id="pl-rename" class="icon" data-i18n-title="rename">✎</button>
+        <button id="pl-delete" class="icon" data-i18n-title="deletePlaylist">🗑</button>
+        <button id="pl-export" class="icon" data-i18n-title="exportYoutube">⤴</button>
+        <button id="pl-presets" class="icon" data-i18n-title="presets">📚</button>
+      </div>
+      <!-- Playlists toutes prêtes (bouton 📚) -->
+      <div id="presets" hidden>
+        <div id="preset-list"></div>
+      </div>
+      <form id="add">
+        <input id="url" type="text" data-i18n-placeholder="linkPlaceholder" data-i18n-title="linkHelp" autocomplete="off">
+        <button type="submit" data-i18n="add"></button>
+      </form>
+    </div>
+
+    <!-- Onglet Blind test, entre deux parties : playlists jouées et réglages de la partie -->
+    <div id="blind-setup" hidden>
+      <div id="blind-pick">
+        <p class="muted" data-i18n="blindSources"></p>
+        <ul id="blind-sources"></ul>
+      </div>
+      <details id="blind-options">
+        <summary id="blind-summary"></summary>
+        <fieldset id="blind-settings" class="frame">
+          <label><span data-i18n="clipLength"></span>
+            <select id="clip">
+              <option value="10">10 s</option>
+              <option value="15">15 s</option>
+              <option value="20">20 s</option>
+              <option value="30">30 s</option>
+              <option value="0" data-i18n="wholeTrack"></option>
+              <option value="-1" data-i18n="chapterLength"></option>
+            </select>
+          </label>
+          <label><span data-i18n="startAt"></span>
+            <select id="startMode">
+              <option value="start" data-i18n="startBeginning"></option>
+              <option value="random" data-i18n="startRandom"></option>
+              <option value="chapter" data-i18n="startChapter"></option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="hideVideo"> <span id="hideVideo-label"></span></label>
+          <label class="check"><input type="checkbox" id="hints"> <span data-i18n="hints"></span></label>
+          <label><span data-i18n="pause"></span>
+            <select id="pause">
+              <option value="0" data-i18n="pauseManual"></option>
+              <option value="5">5 s</option>
+              <option value="10">10 s</option>
+              <option value="15">15 s</option>
+              <option value="20">20 s</option>
+              <option value="30">30 s</option>
+            </select>
+          </label>
+          <!-- Blind test joué (seul ou dans un salon) -->
+          <label id="judge-row"><span data-i18n="judge"></span>
+            <select id="judge">
+              <option value="chat" data-i18n="judgeChat"></option>
+              <option value="self" data-i18n="judgeSelf"></option>
+            </select>
+          </label>
+          <!-- Animateur seulement -->
+          <label id="scoring-row" hidden><span data-i18n="scoring"></span>
+            <select id="scoring">
+              <option value="auto" data-i18n="scoringAuto"></option>
+              <option value="manual" data-i18n="scoringManual"></option>
+            </select>
+          </label>
+        </fieldset>
+      </details>
     </div>
 
     <div id="stage">
@@ -168,51 +228,6 @@
         </div>
         <ol id="host-queue"></ol>
       </div>
-      <fieldset id="blind-settings" class="frame">
-        <label><span data-i18n="clipLength"></span>
-          <select id="clip">
-            <option value="10">10 s</option>
-            <option value="15">15 s</option>
-            <option value="20">20 s</option>
-            <option value="30">30 s</option>
-            <option value="0" data-i18n="wholeTrack"></option>
-            <option value="-1" data-i18n="chapterLength"></option>
-          </select>
-        </label>
-        <label><span data-i18n="startAt"></span>
-          <select id="startMode">
-            <option value="start" data-i18n="startBeginning"></option>
-            <option value="random" data-i18n="startRandom"></option>
-            <option value="chapter" data-i18n="startChapter"></option>
-          </select>
-        </label>
-        <label class="check"><input type="checkbox" id="hideVideo"> <span id="hideVideo-label"></span></label>
-        <label class="check"><input type="checkbox" id="hints"> <span data-i18n="hints"></span></label>
-        <label><span data-i18n="pause"></span>
-          <select id="pause">
-            <option value="0" data-i18n="pauseManual"></option>
-            <option value="5">5 s</option>
-            <option value="10">10 s</option>
-            <option value="15">15 s</option>
-            <option value="20">20 s</option>
-            <option value="30">30 s</option>
-          </select>
-        </label>
-        <!-- Blind test joué (seul ou dans un salon) -->
-        <label id="judge-row"><span data-i18n="judge"></span>
-          <select id="judge">
-            <option value="chat" data-i18n="judgeChat"></option>
-            <option value="self" data-i18n="judgeSelf"></option>
-          </select>
-        </label>
-        <!-- Animateur seulement -->
-        <label id="scoring-row" hidden><span data-i18n="scoring"></span>
-          <select id="scoring">
-            <option value="auto" data-i18n="scoringAuto"></option>
-            <option value="manual" data-i18n="scoringManual"></option>
-          </select>
-        </label>
-      </fieldset>
     </section>
   </main>
 
@@ -301,5 +316,8 @@
   <script src="common/ui.js"></script>
   <script src="presets.js"></script>
   <script src="sidebar.js"></script>
+  <script src="sidebar-playlist.js"></script>
+  <script src="sidebar-blind.js"></script>
+  <script src="sidebar-room.js"></script>
 </body>
 </html>

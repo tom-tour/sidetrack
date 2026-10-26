@@ -483,7 +483,7 @@ function guessPoints(guess, parts) {
 
 // Morceaux de la réponse de la manche en cours (titre du chapitre, ou de la vidéo)
 function roundParts() {
-  const item = items()[state.index];
+  const item = nowPlaying();
   return item ? answerParts(game.chapter?.title, game.chapter ? null : item.title) : null;
 }
 
@@ -501,7 +501,7 @@ function soloPoints() {
 
 function guessHint(text) {
   if (!inGame() || !["playing", "timeup", "revealed"].includes(game.phase) || !text) return false;
-  const item = items()[state.index];
+  const item = nowPlaying();
   if (!item) return false;
   return looksRight(text, answerParts(game.chapter?.title, game.chapter ? null : item.title));
 }
@@ -624,7 +624,7 @@ function claim(id, found) {
 // --- État partagé avec les invités -------------------------------------------
 
 function currentAnswer() {
-  const item = items()[state.index];
+  const item = nowPlaying();
   if (!item) return null;
   return game.chapter?.title ? `${game.chapter.title} · ${item.title}` : item.title;
 }
@@ -635,7 +635,7 @@ function playerList() {
 
 function publicState() {
   const listen = !inGame();
-  const item = items()[state.index];
+  const item = nowPlaying();
   return {
     t: "state",
     mode: state.mode,

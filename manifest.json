@@ -38,8 +38,12 @@
       "common/pow.js",
       "presets.js",
       "background.js",
+      "playlists.js",
+      "player-tab.js",
+      "blind.js",
       "room.js",
-      "guest.js"
+      "guest.js",
+      "main.js"
     ]
   },
   "content_scripts": [
