@@ -82,6 +82,14 @@
 
     <!-- Onglet Playlist : choix de la playlist, playlists toutes prêtes, ajout d'un lien -->
     <div id="listen-head">
+      <!-- Partie de blind test en cours pendant qu'on regarde les playlists -->
+      <div id="game-banner" class="notice" hidden>
+        <span id="game-banner-text"></span>
+        <div class="actions">
+          <button id="game-back" data-i18n="backToGame"></button>
+          <button id="game-stop" data-i18n="stopGame"></button>
+        </div>
+      </div>
       <div id="pl-bar">
         <select id="pl-select" data-i18n-title="playlist"></select>
         <input id="pl-name" type="text" data-i18n-placeholder="playlistName" autocomplete="off" hidden>
@@ -110,14 +118,23 @@
       <details id="blind-options">
         <summary id="blind-summary"></summary>
         <fieldset id="blind-settings" class="frame">
-          <label><span data-i18n="clipLength"></span>
-            <select id="clip">
-              <option value="10">10 s</option>
-              <option value="15">15 s</option>
-              <option value="20">20 s</option>
-              <option value="30">30 s</option>
-              <option value="0" data-i18n="wholeTrack"></option>
-              <option value="-1" data-i18n="chapterLength"></option>
+          <!-- Réglages tout faits : un clic règle tout le reste -->
+          <div id="formulas">
+            <button data-formula="express" data-i18n="formulaExpress" data-i18n-title="formulaExpressTitle"></button>
+            <button data-formula="classic" data-i18n="formulaClassic" data-i18n-title="formulaClassicTitle"></button>
+            <button data-formula="chapters" data-i18n="formulaChapters" data-i18n-title="formulaChaptersTitle"></button>
+          </div>
+
+          <p class="group" data-i18n="groupRounds"></p>
+          <label><span data-i18n="rounds"></span>
+            <select id="rounds">
+              <option value="0" data-i18n="roundsAll"></option>
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="15">15</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
             </select>
           </label>
           <label><span data-i18n="startAt"></span>
@@ -127,16 +144,33 @@
               <option value="chapter" data-i18n="startChapter"></option>
             </select>
           </label>
-          <label class="check"><input type="checkbox" id="hideVideo"> <span id="hideVideo-label"></span></label>
-          <label class="check"><input type="checkbox" id="hints"> <span data-i18n="hints"></span></label>
-          <label><span data-i18n="pause"></span>
-            <select id="pause">
-              <option value="0" data-i18n="pauseManual"></option>
-              <option value="5">5 s</option>
+          <label><span data-i18n="clipLength"></span>
+            <select id="clip">
               <option value="10">10 s</option>
               <option value="15">15 s</option>
               <option value="20">20 s</option>
               <option value="30">30 s</option>
+              <option value="45">45 s</option>
+              <option value="60">60 s</option>
+              <option value="0" data-i18n="wholeTrack"></option>
+              <option value="-1" data-i18n="chapterLength"></option>
+            </select>
+          </label>
+          <label class="check" data-i18n-title="freshTitle"><input type="checkbox" id="fresh"> <span data-i18n="fresh"></span></label>
+
+          <p class="group" data-i18n="groupDuring"></p>
+          <label class="check"><input type="checkbox" id="hideVideo"> <span id="hideVideo-label"></span></label>
+          <label class="check"><input type="checkbox" id="hints"> <span data-i18n="hints"></span></label>
+
+          <p class="group" data-i18n="groupAfter"></p>
+          <label><span data-i18n="pause"></span>
+            <select id="pause">
+              <option value="0" data-i18n="pauseManual"></option>
+              <option value="5"></option>
+              <option value="10"></option>
+              <option value="15"></option>
+              <option value="20"></option>
+              <option value="30"></option>
             </select>
           </label>
           <!-- Blind test joué (seul ou dans un salon) -->
@@ -219,6 +253,11 @@
           <button type="submit" data-i18n="send"></button>
         </form>
         <ul id="guess-list"></ul>
+      </div>
+      <!-- Fin de partie : les manches jouées, un clic pour réécouter -->
+      <div id="recap" hidden>
+        <p class="muted" data-i18n="recapTitle"></p>
+        <ol id="recap-list"></ol>
       </div>
       <!-- Animateur : liste des pistes, clic = prochaine manche -->
       <div id="host-tracks" hidden>

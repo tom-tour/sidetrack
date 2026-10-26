@@ -160,7 +160,7 @@ function onPlaying() {
   announced = true;
   unmutedAt = Date.now();
   unMute();
-  send({ type: "started", duration: player.getDuration() });
+  send({ type: "started", duration: player.getDuration(), time: player.getCurrentTime() });
 }
 
 function waitPlaying(attempt) {

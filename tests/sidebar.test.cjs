@@ -303,7 +303,88 @@ const { read, until, check, done, makeEngine, sidebarFor, playlist } = require("
     check("révélé : le titre de la piste jouée", s2.$("#now").textContent === sep.snap().current.title && sep.snap().current.id === loaded.id);
     check("stockage : playlists jouées gardées", JSON.stringify(sep.store.sidetrack.blindSources) === JSON.stringify(["p1", "p2"]));
 
-    const errs = [...sb.errors, ...sf.errors, ...sq.errors, ...s1.errors, ...s2.errors];
+    // --- Blind test pratique : formules, manches, réécouter, onglets, raccourcis, récapitulatif ---
+    const bt = makeEngine("blind pratique", { sidetrack: { ...two, blindSources: ["p1", "p2"] } });
+    const s3 = sidebarFor(bt);
+    await until(() => bt.snap() && s3.$("#pl-select").options.length === 2);
+    s3.click("#mode-blind");
+    await until(() => !s3.$("#blind-setup").hidden);
+    check("réglages en trois groupes", s3.$$("#blind-settings .group").map((g) => g.textContent).join("|") === "Manches|Pendant la manche|Après la réponse");
+    s3.click('#formulas [data-formula="express"]');
+    await until(() => bt.snap().settings.blind.rounds === 10);
+    const bs = bt.snap().settings.blind;
+    check("formule Express : 10 manches, 15 s, moment aléatoire, 5 s", bs.clip === 15 && bs.startMode === "random" && bs.pause === 5);
+    await until(() => s3.$('#formulas [data-formula="express"]').classList.contains("on"));
+    check("formule en cours allumée, résumé avec les manches", s3.$("#blind-summary").textContent.startsWith("⚙ 10 manches · 15 s · moment aléatoire"), s3.$("#blind-summary").textContent);
+    check("« après 5 s » dans la liste de la manche suivante", s3.$('#pause option[value="5"]').textContent === "après 5 s");
+    s3.$("#rounds").value = "5";
+    s3.fire("#rounds", "change");
+    await until(() => bt.snap().settings.blind.rounds === 5);
+    check("liste « Nombre de manches » : 5", bt.snap().settings.blind.rounds === 5);
+    bt.act("setBlind", "rounds", 2);
+    bt.act("setBlind", "pause", 0);
+    await until(() => bt.snap().settings.blind.rounds === 2 && bt.snap().settings.blind.pause === 0);
+    s3.click("#blind-actions button");
+    await until(() => bt.snap().game.phase === "playing");
+    check("2 manches sur 3 morceaux", bt.snap().game.order.length === 2);
+    bt.fromPlayer({ type: "started", duration: 200, time: 42 });
+    await until(() => [...s3.$$("#blind-actions button")].some((b) => b.textContent === "↺ Réécouter"));
+    s3.click([...s3.$$("#blind-actions button")].find((b) => b.textContent === "↺ Réécouter"));
+    await until(() => bt.player.cmds.some((c) => c.action === "seek" && c.time === 42));
+    check("↺ Réécouter : retour au début de l'extrait (42 s)", bt.player.cmds.some((c) => c.action === "seek" && c.time === 42));
+
+    // Aller voir les playlists ne coupe pas la partie
+    s3.click("#mode-listen");
+    await until(() => !s3.$("#listen-head").hidden);
+    check("onglet Playlist pendant la partie : partie gardée", bt.snap().state.mode === "blind" && bt.snap().game.phase === "playing" && s3.$("#mode-listen").classList.contains("on"));
+    check("bandeau « Partie de blind test en cours · Manche 1/2 »", !s3.$("#game-banner").hidden && s3.$("#game-banner-text").textContent === "❓ Partie de blind test en cours · Manche 1/2", s3.$("#game-banner-text").textContent);
+    check("lecture verrouillée dans l'onglet Playlist", s3.$("#toggle").disabled && s3.$("#prev").disabled && s3.$("#queue").classList.contains("locked"));
+    check("titre toujours caché dans l'onglet Playlist", s3.$("#now").textContent.startsWith("Morceau mystère"));
+    const loads = bt.player.cmds.filter((c) => c.action === "load").length;
+    bt.act("play", 0);
+    await new Promise((r) => setTimeout(r, 100));
+    check("le moteur refuse aussi de lancer un morceau par-dessus la partie", bt.player.cmds.filter((c) => c.action === "load").length === loads && bt.snap().game.phase === "playing");
+    s3.click("#game-back");
+    await until(() => !s3.$("#blind").hidden);
+    check("« Revenir à la partie »", s3.$("#mode-blind").classList.contains("on") && s3.$("#listen-head").hidden);
+
+    // Raccourcis : Espace révèle, puis passe à la manche suivante
+    const space = () => s3.win.document.dispatchEvent(new s3.win.KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    space();
+    await until(() => bt.snap().game.phase === "revealed");
+    check("Espace : réponse révélée", bt.snap().game.phase === "revealed");
+    const firstRound = bt.snap().game.order[0];
+    space();
+    await until(() => bt.snap().game.pos === 1);
+    check("Espace : manche suivante", bt.snap().game.pos === 1);
+    bt.act("reveal");
+    await until(() => bt.snap().game.phase === "revealed");
+    bt.act("nextRound");
+    await until(() => bt.snap().game.phase === "over");
+    await until(() => !s3.$("#recap").hidden);
+    check("fin : récapitulatif des 2 manches, points écrits", s3.$$("#recap-list li").length === 2 && s3.$$("#recap-list li b")[0]?.textContent === "+0", s3.$("#recap-list").textContent);
+    const before = bt.player.cmds.length;
+    s3.click(s3.$$("#recap-list .row")[0]);
+    await until(() => bt.player.cmds.length > before);
+    const replayed = bt.player.cmds.slice(before).find((c) => c.action === "load");
+    check("clic sur une manche : réécoute au moment entendu", replayed?.start === 42, JSON.stringify(replayed));
+    const played = bt.snap().state.blindPlayed;
+    check("manches jouées retenues", played.length === 2);
+    s3.click("#blind-actions button");
+    await until(() => bt.snap().game.phase === "playing");
+    const third = bt.snap().game.order[0];
+    const key = (r) => (r.chapter == null ? bt.snap().deck[r.i].id : `${bt.snap().deck[r.i].id}:${r.chapter}`);
+    check("partie suivante : le morceau pas encore joué d'abord", !played.includes(key(third)), `${key(third)} / ${played}`);
+
+    // Arrêter depuis l'onglet Playlist
+    s3.click("#mode-listen");
+    await until(() => !s3.$("#game-banner").hidden);
+    s3.click("#game-stop");
+    await until(() => bt.snap().game.phase === "idle" && bt.snap().state.mode === "listen");
+    await until(() => s3.$("#game-banner").hidden);
+    check("Arrêter la partie : retour au mode Playlist", !s3.$("#toggle").disabled && s3.$("#mode-listen").classList.contains("on"));
+
+    const errs = [...sb.errors, ...sf.errors, ...sq.errors, ...s1.errors, ...s2.errors, ...s3.errors];
     check("aucune erreur dans la page", !errs.length, errs.join(" / "));
   } catch (err) {
     check("exception", false, err.stack);

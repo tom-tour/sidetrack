@@ -262,7 +262,7 @@ function prev() {
 }
 
 function toggle() {
-  if (!items().length) return;
+  if (!items().length || gameRunning()) return;
   // Pas encore de morceau, ou onglet du lecteur fermé : on (re)lance le morceau
   if (state.index < 0 || !playerPort) return play(Math.max(0, state.index));
   send({ action: playerState === 1 ? "pause" : "play" });

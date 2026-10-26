@@ -38,15 +38,92 @@ function setBlindSources(ids) {
   save();
 }
 
+// Partie commencée et pas finie : changer d'onglet ne l'arrête pas, le mode Playlist attend
+function gameRunning() {
+  return inGame() && !["idle", "over"].includes(game.phase);
+}
+
 // game.tracks : pistes de la partie ; game.order : manches [{ i, chapter? }], i dans game.tracks ;
 // game.track : piste de la manche ; game.clip : durée de la manche en cours
-// (0 = morceau entier, null = inconnue tant que la vidéo n'a pas démarré)
+// (0 = morceau entier, null = inconnue tant que la vidéo n'a pas démarré) ; game.startAt : début
+// de l'extrait dans la vidéo ; game.history : manches jouées, pour le récapitulatif de fin
 function resetGame() {
   clearInterval(gameTimer);
   game = {
     phase: "idle", tracks: [], track: null, order: [], pos: -1, score: 0, played: 0, remaining: 0, clip: 0,
     chapter: null, nextIn: 0, guesses: [], lastPoints: 0, elapsed: 0, hintText: "", hintOrder: [],
+    startAt: null, history: [],
   };
+}
+
+// Arrêter la partie (bouton du bandeau de l'onglet Playlist, ou de l'onglet Blind test)
+function stopGame() {
+  if (!inGame()) return;
+  resetGame();
+  send({ action: "pause" });
+  update();
+}
+
+// --- Réglages tout faits -------------------------------------------------------
+
+const FORMULAS = {
+  express: { rounds: 10, startMode: "random", clip: 15, pause: 5, hints: true },
+  classic: { rounds: 20, startMode: "random", clip: 30, pause: 10, hints: true },
+  chapters: { rounds: 0, startMode: "chapter", clip: -1, pause: 10, hints: true },
+};
+
+function applyFormula(name) {
+  const formula = FORMULAS[name];
+  if (!formula) return;
+  Object.assign(settings.blind, formula);
+  update();
+  save();
+}
+
+// Manche identifiée d'une partie à l'autre : « vidéo » ou « vidéo:chapitre »
+const PLAYED_MAX = 3000;
+const roundKey = (tracks, { i, chapter }) => (chapter == null ? tracks[i].id : `${tracks[i].id}:${chapter}`);
+
+function rememberPlayed(key) {
+  state.blindPlayed = state.blindPlayed.filter((k) => k !== key);
+  state.blindPlayed.push(key);
+  if (state.blindPlayed.length > PLAYED_MAX) state.blindPlayed.splice(0, state.blindPlayed.length - PLAYED_MAX);
+}
+
+// Ordre des manches : au hasard, les jamais jouées d'abord (réglage « fresh »), puis le
+// nombre de manches choisi
+function orderRounds(rounds, tracks) {
+  let order = shuffle(rounds);
+  if (settings.blind.fresh) {
+    const played = new Map(state.blindPlayed.map((k, n) => [k, n]));
+    const fresh = order.filter((r) => !played.has(roundKey(tracks, r)));
+    // Déjà jouées : les plus anciennes d'abord
+    const old = order.filter((r) => played.has(roundKey(tracks, r))).sort((a, b) => played.get(roundKey(tracks, a)) - played.get(roundKey(tracks, b)));
+    order = [...fresh, ...old];
+  }
+  return settings.blind.rounds ? order.slice(0, settings.blind.rounds) : order;
+}
+
+// Titre de la réponse : chapitre et vidéo, ou la vidéo
+function answerTitle() {
+  const item = game.track;
+  if (!item) return "";
+  return game.chapter?.title ? `${game.chapter.title} · ${item.title}` : item.title;
+}
+
+// Réécouter l'extrait depuis son début (manche en cours)
+function replayClip() {
+  if (!["playing", "timeup"].includes(game.phase) || game.startAt == null) return;
+  send({ action: "seek", time: game.startAt });
+  if (game.phase === "timeup") send({ action: "play" });
+}
+
+// Récapitulatif : un clic réécoute la manche (partie finie, ou réponse révélée)
+function blindReplay(k) {
+  const entry = game.history[k];
+  if (!entry || (gameRunning() && game.phase !== "revealed")) return;
+  const item = game.tracks[entry.i];
+  if (item) startTrack(item, { start: entry.at ?? 0 });
 }
 
 // --- Indices, façon pendu ---------------------------------------------------
@@ -110,7 +187,7 @@ async function startGame() {
     );
     log(t("logChapterGame", rounds.length));
   }
-  game.order = shuffle(rounds);
+  game.order = orderRounds(rounds, game.tracks);
   nextRound();
 }
 
@@ -151,6 +228,8 @@ function nextRound() {
   const item = (game.track = game.tracks[i]);
   const chapters = item.chapters;
   game.phase = "playing";
+  game.startAt = null;
+  rememberPlayed(roundKey(game.tracks, game.order[game.pos]));
 
   if (chapter != null) {
     const start = chapters[chapter].start;
@@ -168,7 +247,9 @@ function nextRound() {
     startTrack(item, { randomStart: startMode !== "start", clip: game.clip });
   }
   game.remaining = game.clip ?? 0;
+  game.history.push({ i, chapter: chapter ?? null, title: answerTitle(), at: game.chapter?.start ?? null, points: null, found: null });
   prepareHints();
+  save();
 }
 
 function startCountdown() {
@@ -209,7 +290,10 @@ function reveal() {
     game.score += game.lastPoints;
     game.played += 10;
     game.answered = true;
+    game.history.at(-1).points = game.lastPoints;
   }
+  // Moment réellement entendu (départ aléatoire compris), pour réécouter depuis le récapitulatif
+  if (game.startAt != null) game.history.at(-1).at = game.startAt;
   send({ action: "play" });
   // Partie automatique : la manche suivante part après la pause réglée
   game.nextIn = settings.blind.pause > 0 ? settings.blind.pause : 0;
@@ -228,6 +312,7 @@ function reveal() {
 function answer(found) {
   if (game.phase !== "revealed" || game.answered) return;
   game.answered = true;
+  if (game.history.length) game.history.at(-1).found = !!found;
   if (found) game.score++;
   game.played++;
   nextRound();

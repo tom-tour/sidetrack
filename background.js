@@ -32,7 +32,8 @@ const DEFAULTS = {
   // scoring : points de l'animateur, "auto" (comme les joueurs) ou "manual" (il les donne)
   // judge : blind test joué, points « chat » (à l'écrit) ou « self » (chacun se juge)
   // hints : lettres du titre dévoilées peu à peu pendant la manche (le maximum de points baisse)
-  blind: { clip: -1, startMode: "chapter", hideVideo: true, pause: 10, scoring: "auto", judge: "chat", hints: true },
+  // rounds : nombre de manches (0 = toutes) ; fresh : morceaux pas encore joués d'abord
+  blind: { rounds: 0, fresh: true, clip: -1, startMode: "chapter", hideVideo: true, pause: 10, scoring: "auto", judge: "chat", hints: true },
   banned: {},          // identité (clé publique) → « Nom · CODE » : refusés dans nos salons
   blocked: {},         // pareil pour les personnes bloquées : cachées dans les salons des autres, refusées dans les nôtres
 };
@@ -67,6 +68,8 @@ function cleanBlind(key, value) {
   switch (key) {
     case "clip":
       return int(value, -1, 3600);
+    case "rounds":
+      return int(value, 0, 500);
     case "pause":
       return int(value, 0, 60);
     case "startMode":
@@ -77,6 +80,7 @@ function cleanBlind(key, value) {
       return ["chat", "self"].includes(value) ? value : undefined;
     case "hideVideo":
     case "hints":
+    case "fresh":
       return bool(value);
   }
   return undefined;
@@ -113,6 +117,7 @@ let state = {
   shuffle: false,
   mode: "listen",      // "listen" | "blind" | "emcee" (blind test animé par l'hôte d'un salon)
   blindSources: [],    // playlists jouées en blind test (vide : la playlist ouverte)
+  blindPlayed: [],     // manches déjà jouées (« vidéo » ou « vidéo:chapitre »), pour varier les parties
 };
 
 let playerState = -1;  // -1 non démarré, 0 fini, 1 lecture, 2 pause, 5 prête
@@ -143,7 +148,7 @@ function nowPlaying() {
 }
 
 // Partie de blind test en cours (non sauvegardée)
-let game = { phase: "idle", tracks: [], track: null, order: [], pos: -1, score: 0, played: 0, remaining: 0 };
+let game = { phase: "idle", tracks: [], track: null, order: [], pos: -1, score: 0, played: 0, remaining: 0, history: [] };
 let gameTimer = null;
 
 function log(msg) {
@@ -152,8 +157,8 @@ function log(msg) {
 }
 
 function save() {
-  const { playlists, current, shuffle, mode, blindSources } = state;
-  browser.storage.local.set({ sidetrack: { playlists, current, shuffle, mode, blindSources }, settings });
+  const { playlists, current, shuffle, mode, blindSources, blindPlayed } = state;
+  browser.storage.local.set({ sidetrack: { playlists, current, shuffle, mode, blindSources, blindPlayed }, settings });
 }
 
 // --- Identité ----------------------------------------------------------------
@@ -189,6 +194,7 @@ function snapshot() {
     game: { ...game, tracks: undefined, track: undefined },
     current: nowPlaying() && { id: nowPlaying().id, title: nowPlaying().title },
     blindSources: blindSources(),
+    formulas: FORMULAS,
     deck: inGame() ? deck().map(({ id, title, chapters }) => ({ id, title, chapters })) : null, ready: readyShown, tips, log: journal.lines,
     me: { code: identity.code, mining: myIdentity.mining && { percent: powPercent(myIdentity.mining.tries) } },
     room: roomSnapshot(), guest: guestSnapshot(), rooms: publicRoomsSnapshot(),

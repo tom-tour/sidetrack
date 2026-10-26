@@ -30,6 +30,16 @@ body { padding: 8px; }
 #blind-sources .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #blind-summary { cursor: pointer; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #blind-options[open] #blind-summary { margin-bottom: 4px; }
+#blind-settings .group { margin: 8px 0 2px; font-weight: 600; }
+#blind-settings .group:first-of-type { margin-top: 6px; }
+#formulas { display: flex; gap: 4px; }
+#formulas button { flex: 1; min-width: 0; padding-left: 2px; padding-right: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#game-banner { margin-bottom: 6px; }
+#queue.locked > li > .row { cursor: default; }
+#recap { margin-top: 8px; }
+#recap p { margin: 0 0 4px; }
+#recap-list { margin: 0; padding-left: 24px; max-height: 260px; overflow-y: auto; }
+#recap-list .row b { flex: none; font-variant-numeric: tabular-nums; }
 
 /* --- Lecteur (miniature, cache du blind test, chargement) --- */
 #player-wrap { position: relative; margin-top: 8px; aspect-ratio: 16 / 9; background: #000; border-radius: 4px; overflow: hidden; }

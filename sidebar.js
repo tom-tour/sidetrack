@@ -105,9 +105,21 @@ $("#show-player").addEventListener("click", () => act("togglePlayerTab"));
 // L'aperçu fait comme 📺 (sauf quand 📺 est caché : blind test joué)
 $("#art").addEventListener("click", () => !$("#show-player").hidden && act("togglePlayerTab"));
 $("#volume").addEventListener("input", (e) => act("setVolume", Number(e.target.value)));
-$("#mode-listen").addEventListener("click", () => act("setMode", "listen"));
-$("#mode-blind").addEventListener("click", () => act("setMode", "blind"));
-$("#mode-emcee").addEventListener("click", () => act("setMode", "emcee"));
+// Onglets. Pendant une partie de blind test, aller voir les playlists ne l'arrête pas :
+// l'onglet Playlist s'affiche ici seulement (tab), la partie continue, et un bandeau propose
+// d'y revenir ou de l'arrêter. Sans partie en cours, l'onglet change le mode du moteur.
+let tab = null;      // onglet affiché quand il diffère du mode du moteur (partie en cours)
+let shownTab = "listen";
+let gameLocked = false; // partie en cours : rien ne se lance depuis l'onglet Playlist
+
+function chooseTab(mode) {
+  tab = gameLocked && mode === "listen" ? "listen" : null;
+  if (!tab) act("setMode", mode);
+  render();
+}
+$("#mode-listen").addEventListener("click", () => chooseTab("listen"));
+$("#mode-blind").addEventListener("click", () => chooseTab("blind"));
+$("#mode-emcee").addEventListener("click", () => chooseTab("emcee"));
 
 // Ligne de progression : extrait d'une manche (clip), sinon la vidéo en cours (videoId), dont
 // la position avance ici entre deux états du moteur. seek : un clic sur la barre y amène.
@@ -229,7 +241,7 @@ function trackList(index, { list = items(), picking = false, played = new Set() 
     ).title = t("chapters");
     const title = row.appendChild(el("span", { textContent: item.title }));
     title.title = item.title;
-    row.addEventListener("click", () => act(picking ? "blindPick" : "play", i, null));
+    row.addEventListener("click", () => (picking || !gameLocked) && act(picking ? "blindPick" : "play", i, null));
     if (!picking) {
       const del = row.appendChild(
         button("✕", (e) => {
@@ -291,9 +303,13 @@ function render() {
   const blind = state.mode === "blind" || state.mode === "emcee";
   // On joue (seul, ou avec ses invités) : rien n'est dévoilé pendant la manche
   const secret = blind && !referee && ["playing", "timeup"].includes(game.phase);
-  $("#mode-listen").classList.toggle("on", !blind);
-  $("#mode-blind").classList.toggle("on", blind && !referee);
-  $("#mode-emcee").classList.toggle("on", referee);
+  gameLocked = blind && !["idle", "over"].includes(game.phase);
+  if (!gameLocked) tab = null;
+  shownTab = tab ?? state.mode;
+  const blindTab = shownTab !== "listen"; // onglet affiché : Blind test ou Animateur
+  $("#mode-listen").classList.toggle("on", shownTab === "listen");
+  $("#mode-blind").classList.toggle("on", shownTab === "blind");
+  $("#mode-emcee").classList.toggle("on", shownTab === "emcee");
   $("#mode-emcee").hidden = !multi;
   renderRoom(blind);
   renderTips();
@@ -302,12 +318,12 @@ function render() {
   // Invité d'un salon : pas de playlist à soi ni de blind test, on suit l'hôte
   const guest = view.guest;
   // Chaque onglet a son haut de page : playlists et lien, ou playlists jouées et réglages
-  $("#listen-head").hidden = !!guest || blind;
-  if (guest || !blind) $("#blind-setup").hidden = true;
+  $("#listen-head").hidden = !!guest || blindTab;
+  if (guest || !blindTab) $("#blind-setup").hidden = true;
   $("#tabs").hidden = !!guest;
   $("#guest").hidden = !guest;
-  $("#listen").hidden = !!guest || blind;
-  $("#blind").hidden = !!guest || !blind;
+  $("#listen").hidden = !!guest || blindTab;
+  $("#blind").hidden = !!guest || !blindTab;
   if (document.activeElement !== $("#volume")) $("#volume").value = String(settings.volume);
   if (guest) return renderGuest(guest);
 
@@ -355,8 +371,11 @@ function render() {
 
   $("#host-tracks").hidden = !referee;
   if (referee) renderHostTracks(game);
-  if (blind) renderBlind(game, view.deck?.length ?? 0, referee, multi);
-  else renderQueue(state.index);
+  if (blindTab) renderBlind(game, view.deck?.length ?? 0, referee, multi);
+  else {
+    renderGameBanner(game);
+    renderQueue(state.index);
+  }
 }
 
 function renderSettings(settings) {

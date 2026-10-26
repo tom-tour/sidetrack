@@ -110,6 +110,27 @@ function renderQueue(index) {
   $("#empty").hidden = items().length > 0;
 }
 
+// Partie de blind test en cours pendant qu'on regarde les playlists : on peut les modifier,
+// mais rien ne se lance avant d'avoir arrêté la partie
+$("#game-back").addEventListener("click", () => chooseTab(view.state.mode));
+$("#game-stop").addEventListener("click", () => {
+  act("stopGame");
+  act("setMode", "listen");
+  tab = null;
+});
+
+function renderGameBanner(game) {
+  $("#game-banner").hidden = !gameLocked;
+  for (const id of ["#prev", "#toggle", "#next"]) {
+    $(id).disabled = gameLocked;
+  }
+  $("#listen .controls").title = gameLocked ? t("lockedTitle") : "";
+  $("#queue").classList.toggle("locked", gameLocked);
+  if (!gameLocked) return;
+  const where = game.phase === "loading" ? t("loadingChapters") : t("round", game.pos + 1, game.order.length);
+  $("#game-banner-text").textContent = t("gameRunning", where);
+}
+
 // Liste des playlists (sauf pendant un renommage) et bouton 🗑 (« Sûr ? »)
 function renderPlaylistBar(state) {
   if (!editing) {

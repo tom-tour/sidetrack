@@ -8,6 +8,31 @@ $("#hints").addEventListener("change", (e) => act("setBlind", "hints", e.target.
 $("#pause").addEventListener("change", (e) => act("setBlind", "pause", Number(e.target.value)));
 $("#scoring").addEventListener("change", (e) => act("setBlind", "scoring", e.target.value));
 $("#judge").addEventListener("change", (e) => act("setBlind", "judge", e.target.value));
+$("#rounds").addEventListener("change", (e) => act("setBlind", "rounds", Number(e.target.value)));
+$("#fresh").addEventListener("change", (e) => act("setBlind", "fresh", e.target.checked));
+for (const b of document.querySelectorAll("#formulas button")) {
+  b.addEventListener("click", () => act("applyFormula", b.dataset.formula));
+}
+
+// Raccourcis (onglet Blind test, hors d'un champ) : Espace révèle puis passe à la manche
+// suivante, R réécoute l'extrait
+document.addEventListener("keydown", (e) => {
+  if (!view || view.guest || shownTab === "listen" || $("#main").hidden) return;
+  if (e.ctrlKey || e.altKey || e.metaKey || e.target.closest?.("input, select, textarea")) return;
+  const { game } = view;
+  if (e.key === " ") {
+    e.preventDefault();
+    if (["playing", "timeup"].includes(game.phase)) act("reveal");
+    else if (game.phase === "revealed" && !waitsForClaim()) act("nextRound");
+  } else if (e.key === "r" || e.key === "R") {
+    act("replayClip");
+  }
+});
+
+// Seul et juge de soi-même : la manche attend « Trouvé » ou « Raté »
+function waitsForClaim() {
+  return !view.room && view.state.mode === "blind" && view.settings.blind.judge === "self" && !view.game.answered;
+}
 $("#guess-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = $("#guess-input").value.trim();
@@ -48,6 +73,7 @@ function renderBlind(game, n, multi, room = multi) {
     status.append(" : ");
     status.appendChild(el("strong", { textContent: `${game.score}/${game.played}` }));
   }
+  renderRecap(game);
   $("#blind-actions").replaceChildren(...(multi ? emceeControls(game, n) : playerActions(game, n, room, self)));
 
   // Seul, points à l'écrit : champ de réponse et réponses de la manche
@@ -94,6 +120,7 @@ function renderSummary() {
   const label = (id, value) => $(id).querySelector(`option[value="${value}"]`)?.textContent ?? "";
   const lower = (s) => s.charAt(0).toLowerCase() + s.slice(1);
   const parts = [label("#clip", b.clip), lower(label("#startMode", b.startMode))];
+  if (b.rounds) parts.unshift(t("roundsShort", b.rounds));
   if (b.hints) parts.push(t("hintsShort"));
   if (b.pause) parts.push(t("pauseShort", b.pause));
   $("#blind-summary").textContent = `⚙ ${parts.join(" · ")}`;
@@ -113,6 +140,7 @@ function emceeControls(game, n) {
     b("🔀", "newGameTitle", "startGame", n > 0 && game.phase !== "loading"),
     b(view.playerState === 1 ? "⏸" : "▶", "playPause", "playPause", !["idle", "over", "loading"].includes(game.phase)),
     b("👁", "revealTitle", "reveal", live),
+    b("↺", "replayTitle", "replayClip", live),
     b("⏭", "nextRoundTitle", "nextRound", live || game.phase === "revealed"),
   ];
 }
@@ -126,11 +154,19 @@ function playerActions(game, n, room, self) {
       return [start];
     }
     case "playing":
-      return [button(t("reveal"), () => act("reveal")), button(t("skip"), () => act("nextRound"))];
-    case "timeup":
-      return [button(t("reveal"), () => act("reveal"))];
+    case "timeup": {
+      const reveal = button(t("reveal"), () => act("reveal"));
+      reveal.title = t("revealKeyTitle");
+      const again = button(t("replayClip"), () => act("replayClip"));
+      again.title = t("replayTitle");
+      const skip = button(t("skip"), () => act("nextRound"));
+      const stop = button("■", () => act("stopGame"));
+      stop.title = t("stopGame");
+      return game.phase === "playing" ? [reveal, again, skip, stop] : [reveal, again, stop];
+    }
     case "revealed": {
       const nextBtn = button(t("nextRound"), () => act("nextRound"));
+      nextBtn.title = t("nextKeyTitle");
       if (!self) return [nextBtn];
       const done = room ? !!view.room.hostClaimed : !!game.answered;
       const found = button(t("found"), () => act("claim", true), "good");
@@ -140,6 +176,10 @@ function playerActions(game, n, room, self) {
     }
     case "over":
       return [button(t("replay"), () => act("startGame"))];
+    case "loading": {
+      const stop = button(`■ ${t("stopGame")}`, () => act("stopGame"));
+      return [stop];
+    }
     default:
       return [];
   }
@@ -175,5 +215,30 @@ function renderBlindForm(blind, referee) {
   set("#pause", blind.pause);
   set("#scoring", blind.scoring);
   set("#judge", blind.judge);
+  set("#rounds", blind.rounds);
+  $("#fresh").checked = blind.fresh;
+  for (const o of $("#pause").options) if (o.value !== "0") o.textContent = t("pauseAfter", o.value);
   $("#scoring-row").hidden = !referee;
+  // Réglage tout fait qui correspond aux réglages actuels : allumé
+  for (const b of document.querySelectorAll("#formulas button")) {
+    const f = view.formulas[b.dataset.formula];
+    b.classList.toggle("on", Object.keys(f).every((k) => blind[k] === f[k]));
+  }
+}
+
+// Fin de partie : les manches jouées (réponse, résultat), un clic pour réécouter
+function renderRecap(game) {
+  const shown = game.phase === "over" && game.history.length > 0;
+  $("#recap").hidden = !shown;
+  if (!shown || !changed("recap", game.history)) return;
+  $("#recap-list").replaceChildren(
+    ...game.history.map((h, k) => {
+      const row = el("div", { className: "row" });
+      const result = h.points != null ? `+${h.points}` : h.found === true ? "✓" : h.found === false ? "✗" : "";
+      if (result) row.appendChild(el("b", { textContent: result, className: h.points > 0 || h.found ? "good" : "bad" }));
+      row.appendChild(el("span", { textContent: h.title })).title = h.title;
+      row.addEventListener("click", () => act("blindReplay", k));
+      return el("li", {}, row);
+    })
+  );
 }

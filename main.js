@@ -84,6 +84,10 @@ const actions = {
   nextRound,
   blindPick,
   setBlindSources,
+  applyFormula,
+  replayClip,
+  stopGame,
+  blindReplay,
   reveal,
   answer,
   setBlind: (key, value) => {
@@ -153,6 +157,7 @@ async function init() {
   state.shuffle = data.shuffle === true;
   state.mode = data.mode === "blind" ? "blind" : "listen"; // pas de salon au démarrage
   if (Array.isArray(data.blindSources)) state.blindSources = data.blindSources.filter((id) => typeof id === "string");
+  if (Array.isArray(data.blindPlayed)) state.blindPlayed = data.blindPlayed.filter((k) => typeof k === "string").slice(-PLAYED_MAX);
   setLang(settings.lang);
   if (!settings.nickname) settings.nickname = proposedName();
   if (!state.playlists.length) newPlaylist(t("defaultPlaylist"));

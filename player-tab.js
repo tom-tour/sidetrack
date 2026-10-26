@@ -167,8 +167,9 @@ let lastPlay = null;      // { item, opts } : dernier morceau lancé, rejoué si
 let retriedVisible = false; // reprise déjà tentée onglet affiché, depuis le dernier départ réussi
 
 function play(i, opts = {}) {
-  // Invité d'un salon : c'est l'hôte qui choisit la musique
-  if (inGuestRoom() || !Number.isInteger(i) || i < 0 || i >= items().length) return;
+  // Invité d'un salon : c'est l'hôte qui choisit la musique. Partie de blind test en cours :
+  // elle garde le lecteur jusqu'à ce qu'on l'arrête.
+  if (inGuestRoom() || gameRunning() || !Number.isInteger(i) || i < 0 || i >= items().length) return;
   state.index = i;
   startTrack(items()[i], opts);
   save();
@@ -293,6 +294,8 @@ function onPlayerMessage(msg) {
           game.clip = Math.max(5, Math.floor(msg.duration - game.chapter.start));
           game.remaining = game.clip;
         }
+        // Début de l'extrait (après l'éventuel saut aléatoire) : pour « Réécouter »
+        game.startAt = Number.isFinite(Number(msg.time)) ? Number(msg.time) : game.chapter?.start ?? position?.time ?? 0;
         startCountdown();
       }
       break;
